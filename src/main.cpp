@@ -31,9 +31,11 @@
 #include "network_manager.h"
 #include "room.h"
 #include "server.h"
+#include "version.h"
 
 #include <atomic>
 #include <csignal>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -48,6 +50,7 @@ constexpr const char *GREEN = "\033[32m";
 constexpr const char *YELLOW = "\033[33m";
 constexpr const char *RED = "\033[31m";
 constexpr const char *MAGENTA = "\033[35m";
+constexpr const char *CLEAR_LINE = "\033[2K\r"; // erase line + carriage return
 } // namespace ansi
 
 // ── Global shutdown flag
@@ -73,10 +76,27 @@ static void print_banner() {
   std::cout << "\n"
             << ansi::CYAN << ansi::BOLD
             << "+--------------------------------------+\n"
-            << "|       LAN Chat  v2.0                 |\n"
+            << "|       LAN Chat  v" << APP_VERSION << "               |\n"
             << "|  Multi-PC group chat over LAN        |\n"
             << "+--------------------------------------+\n"
             << ansi::RESET << "\n";
+}
+
+/// Get the full path to the currently running executable.
+static std::string get_exe_path() {
+  char buf[MAX_PATH] = {};
+  GetModuleFileNameA(NULL, buf, MAX_PATH);
+  return std::string(buf);
+}
+
+/// Get the directory containing the currently running executable.
+static std::string get_exe_dir() {
+  std::string path = get_exe_path();
+  std::string::size_type pos = path.find_last_of("\\/");
+  if (pos != std::string::npos) {
+    return path.substr(0, pos);
+  }
+  return ".";
 }
 
 /// Print local LAN IP addresses.
@@ -123,12 +143,70 @@ static void run_server() {
 
   // Register callback: each new connection gets added to the Room
   server.set_on_new_client([&room](SocketWrapper sock, std::string ip) {
+    // Read the first message as the client's chosen username
+    std::string username;
+    try {
+      username = sock.receive_message();
+    } catch (...) {
+      username = "";
+    }
+    if (username.empty()) {
+      username = ip;
+    }
+
+    // Read the second message — client version
+    std::string client_version;
+    try {
+      client_version = sock.receive_message();
+    } catch (...) {
+      client_version = "";
+    }
+
+    // Check for version prefix
+    const std::string ver_prefix = "CMD:VERSION:";
+    std::string ver_str = "";
+    if (client_version.size() >= ver_prefix.size() &&
+        client_version.substr(0, ver_prefix.size()) == ver_prefix) {
+      ver_str = client_version.substr(ver_prefix.size());
+    }
+
+    // Compare versions and send update if needed
+    if (!ver_str.empty() && ver_str != std::string(APP_VERSION)) {
+      // Client is outdated — read our own exe and send it
+      std::string exe_path = get_exe_path();
+      std::ifstream file(exe_path.c_str(), std::ios::binary | std::ios::ate);
+      if (file.is_open()) {
+        std::streamsize file_size = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        std::string exe_data(static_cast<std::size_t>(file_size), '\0');
+        file.read(&exe_data[0], file_size);
+        file.close();
+
+        // Tell client an update is available
+        std::string cmd = "CMD:UPDATE:" + std::to_string(file_size);
+        sock.send_message(cmd);
+
+        // Send the exe binary
+        sock.send_binary(exe_data.data(),
+                         static_cast<uint32_t>(exe_data.size()));
+
+        std::cout << ansi::CLEAR_LINE << ansi::YELLOW
+                  << "[Server] Sent update (v" << APP_VERSION << ") to "
+                  << username << " (was v" << ver_str << ")\n"
+                  << ansi::RESET << "You: " << std::flush;
+      } else {
+        sock.send_message("CMD:OK");
+      }
+    } else {
+      sock.send_message("CMD:OK");
+    }
+
     std::size_t count = room.client_count() + 1;
-    std::cout << "\n"
-              << ansi::GREEN << "[Server] New client connected: " << ip
-              << "  (total: " << count << ")\n"
+    std::cout << ansi::CLEAR_LINE << ansi::GREEN << "[Server] " << username
+              << " (" << ip << ") connected  (total: " << count << ")\n"
               << ansi::RESET << "You: " << std::flush;
-    room.add_client(std::move(sock), ip);
+    room.add_client(std::move(sock), username);
   });
 
   server.start_accept_loop();
@@ -177,9 +255,16 @@ static void run_server() {
  * @brief Run the client: connect to server, send/receive messages.
  */
 static void run_client() {
-  std::string host;
+  std::string username;
   std::cout << "\n"
-            << ansi::CYAN
+            << ansi::CYAN << "[Client] Enter your username: " << ansi::RESET;
+  std::getline(std::cin, username);
+  if (username.empty()) {
+    username = "Anonymous";
+  }
+
+  std::string host;
+  std::cout << ansi::CYAN
             << "[Client] Enter server IP address: " << ansi::RESET;
   std::getline(std::cin, host);
 
@@ -195,24 +280,76 @@ static void run_client() {
   Client client;
   SocketWrapper conn = client.connect_to(host, DEFAULT_PORT);
 
-  std::cout << ansi::GREEN << "[Client] Connected! You are in the group chat.\n"
+  std::cout << ansi::GREEN << "[Client] Connected as \"" << username << "\"!\n"
             << ansi::YELLOW << "  Type 'quit' or Ctrl+C to disconnect.\n"
             << ansi::RESET << "\n";
 
   ChatSession session;
+
+  // ── Version handshake on raw socket (before creating NetworkManager)
+  // Send username
+  conn.send_message(username);
+
+  // Send version
+  conn.send_message(std::string("CMD:VERSION:") + APP_VERSION);
+
+  // Read server response
+  std::string server_response;
+  try {
+    server_response = conn.receive_message();
+  } catch (...) {
+    server_response = "";
+  }
+
+  if (server_response.substr(0, 11) == "CMD:UPDATE:") {
+    // Server is sending us an updated exe
+    std::cout << ansi::YELLOW
+              << "[Update] New version available! Downloading...\n"
+              << ansi::RESET << std::flush;
+
+    std::string exe_data;
+    if (conn.receive_binary(exe_data) && !exe_data.empty()) {
+      // Save next to our own exe
+      std::string save_path = get_exe_dir() + "\\LAN_Chat_new.exe";
+      std::ofstream out_file(save_path.c_str(),
+                             std::ios::binary | std::ios::trunc);
+      if (out_file.is_open()) {
+        out_file.write(exe_data.data(),
+                       static_cast<std::streamsize>(exe_data.size()));
+        out_file.close();
+        std::cout << ansi::GREEN << "[Update] Saved as: " << save_path << "\n"
+                  << "[Update] Close this app and run LAN_Chat_new.exe "
+                  << "to use the latest version.\n"
+                  << ansi::RESET << "\n";
+      } else {
+        std::cout << ansi::RED << "[Update] Failed to save update file.\n"
+                  << ansi::RESET;
+      }
+    } else {
+      std::cout << ansi::RED << "[Update] Failed to download update.\n"
+                << ansi::RESET;
+    }
+  } else {
+    std::cout << ansi::GREEN << "[Update] You are running the latest version (v"
+              << APP_VERSION << ")\n"
+              << ansi::RESET;
+  }
+
+  // ── Now hand socket to NetworkManager for normal chat
   NetworkManager nm(std::move(conn));
 
   nm.set_on_message([&session](const std::string &text) {
-    // text already contains "[SenderName]: message" from the server
-    Message msg("", text); // raw formatted text from server
+    // Normal chat message
+    Message msg("", text);
     session.add(msg);
-    std::cout << "\r" << ansi::MAGENTA << text << ansi::RESET << "\n"
+    std::cout << ansi::CLEAR_LINE << ansi::MAGENTA << text << ansi::RESET
+              << "\n"
               << ansi::GREEN << "You" << ansi::RESET << ": " << std::flush;
   });
 
   nm.set_on_disconnect([]() {
-    std::cout << "\n"
-              << ansi::YELLOW << "[Chat] Server disconnected.\n"
+    std::cout << ansi::CLEAR_LINE << ansi::YELLOW
+              << "[Chat] Server disconnected.\n"
               << ansi::RESET;
     g_shutdown.store(true);
   });

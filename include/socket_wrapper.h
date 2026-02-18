@@ -8,7 +8,8 @@
  * chat message, regardless of TCP segmentation.
  *
  * Wire format (per message):
- *   [4 bytes – uint32_t length (network byte order)] [<length> bytes – UTF-8 text]
+ *   [4 bytes – uint32_t length (network byte order)] [<length> bytes – UTF-8
+ * text]
  */
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -17,8 +18,9 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#include <string>
+#include <cstdint>
 #include <stdexcept>
+#include <string>
 
 /// Default TCP port used by both server and client.
 constexpr unsigned short DEFAULT_PORT = 54000;
@@ -31,51 +33,67 @@ constexpr unsigned short DEFAULT_PORT = 54000;
  */
 class SocketWrapper {
 public:
-    /// Construct from an already-connected/accepted socket handle.
-    explicit SocketWrapper(SOCKET sock);
+  /// Construct from an already-connected/accepted socket handle.
+  explicit SocketWrapper(SOCKET sock);
 
-    // Non-copyable
-    SocketWrapper(const SocketWrapper&) = delete;
-    SocketWrapper& operator=(const SocketWrapper&) = delete;
+  // Non-copyable
+  SocketWrapper(const SocketWrapper &) = delete;
+  SocketWrapper &operator=(const SocketWrapper &) = delete;
 
-    // Movable
-    SocketWrapper(SocketWrapper&& other) noexcept;
-    SocketWrapper& operator=(SocketWrapper&& other) noexcept;
+  // Movable
+  SocketWrapper(SocketWrapper &&other) noexcept;
+  SocketWrapper &operator=(SocketWrapper &&other) noexcept;
 
-    ~SocketWrapper();
+  ~SocketWrapper();
 
-    /**
-     * @brief Send a UTF-8 string message to the remote peer.
-     * @param message The text to send.
-     * @throws std::runtime_error on socket error.
-     */
-    void send_message(const std::string& message);
+  /**
+   * @brief Send a UTF-8 string message to the remote peer.
+   * @param message The text to send.
+   * @throws std::runtime_error on socket error.
+   */
+  void send_message(const std::string &message);
 
-    /**
-     * @brief Block until a complete message is received from the remote peer.
-     * @return The received UTF-8 string, or an empty string if the peer disconnected.
-     * @throws std::runtime_error on socket error.
-     */
-    std::string receive_message();
+  /**
+   * @brief Block until a complete message is received from the remote peer.
+   * @return The received UTF-8 string, or an empty string if the peer
+   * disconnected.
+   * @throws std::runtime_error on socket error.
+   */
+  std::string receive_message();
 
-    /// @return true if the underlying socket handle is valid.
-    bool is_valid() const;
+  /**
+   * @brief Send raw binary data with a length header (for file transfer).
+   * @param data Pointer to the binary data.
+   * @param len  Length in bytes.
+   * @throws std::runtime_error on socket error.
+   */
+  void send_binary(const char *data, uint32_t len);
 
-    /// Close the socket immediately.
-    void close();
+  /**
+   * @brief Receive raw binary data with a length header (for file transfer).
+   * @param out  String to store the received binary data.
+   * @return true if data was received, false if peer disconnected.
+   */
+  bool receive_binary(std::string &out);
+
+  /// @return true if the underlying socket handle is valid.
+  bool is_valid() const;
+
+  /// Close the socket immediately.
+  void close();
 
 private:
-    SOCKET sock_;
+  SOCKET sock_;
 
-    /**
-     * @brief Send exactly @p len bytes from @p buf.
-     * @return false if the connection was closed gracefully.
-     */
-    bool send_all(const char* buf, int len);
+  /**
+   * @brief Send exactly @p len bytes from @p buf.
+   * @return false if the connection was closed gracefully.
+   */
+  bool send_all(const char *buf, int len);
 
-    /**
-     * @brief Receive exactly @p len bytes into @p buf.
-     * @return false if the connection was closed gracefully.
-     */
-    bool recv_all(char* buf, int len);
+  /**
+   * @brief Receive exactly @p len bytes into @p buf.
+   * @return false if the connection was closed gracefully.
+   */
+  bool recv_all(char *buf, int len);
 };

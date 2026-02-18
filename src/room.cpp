@@ -23,8 +23,8 @@ uint32_t Room::add_client(SocketWrapper socket, const std::string &name) {
   // Build callbacks that capture 'this' (Room outlives all handlers)
   auto on_msg = [this](uint32_t sender_id, const std::string &sender_name,
                        const std::string &message) {
-    // Print on server console
-    std::cout << "\r[" << sender_name << "]: " << message << "\n"
+    // Print on server console (clear current line first)
+    std::cout << "\033[2K\r" << "[" << sender_name << "]: " << message << "\n"
               << "You: " << std::flush;
     // Forward to all other clients
     broadcast(sender_id, sender_name, message);
@@ -43,7 +43,7 @@ void Room::remove_client(uint32_t id) {
   LockGuard<Mutex> lock(mutex_);
   auto it = clients_.find(id);
   if (it != clients_.end()) {
-    std::cout << "\n[Room] " << it->second->name()
+    std::cout << "\033[2K\r" << "[Room] " << it->second->name()
               << " disconnected. Active clients: " << (clients_.size() - 1)
               << "\n"
               << "You: " << std::flush;

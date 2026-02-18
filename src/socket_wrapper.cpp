@@ -116,3 +116,49 @@ bool SocketWrapper::recv_all(char *buf, int len) {
   }
   return true;
 }
+
+// ── Binary transfer (for file/exe updates)
+// ──────────────────────────────────────
+
+void SocketWrapper::send_binary(const char *data, uint32_t len) {
+  if (!is_valid()) {
+    throw std::runtime_error("send_binary: socket is not valid");
+  }
+
+  uint32_t net_len = htonl(len);
+  if (!send_all(reinterpret_cast<const char *>(&net_len), sizeof(net_len))) {
+    throw std::runtime_error("send_binary: failed to send length header");
+  }
+  if (len > 0 && !send_all(data, static_cast<int>(len))) {
+    throw std::runtime_error("send_binary: failed to send binary data");
+  }
+}
+
+bool SocketWrapper::receive_binary(std::string &out) {
+  if (!is_valid()) {
+    return false;
+  }
+
+  uint32_t net_len = 0;
+  if (!recv_all(reinterpret_cast<char *>(&net_len), sizeof(net_len))) {
+    return false;
+  }
+
+  uint32_t len = ntohl(net_len);
+  if (len == 0) {
+    out.clear();
+    return true;
+  }
+
+  // Allow up to 100 MB for exe transfer
+  constexpr uint32_t MAX_BIN = 100u * 1024u * 1024u;
+  if (len > MAX_BIN) {
+    throw std::runtime_error("receive_binary: data too large");
+  }
+
+  out.resize(len);
+  if (!recv_all(&out[0], static_cast<int>(len))) {
+    return false;
+  }
+  return true;
+}
