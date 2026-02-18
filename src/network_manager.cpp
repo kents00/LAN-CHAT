@@ -33,7 +33,7 @@ void NetworkManager::start() {
   if (running_.load())
     return;
   running_.store(true);
-  recv_thread_ = std::thread(&NetworkManager::receive_loop, this);
+  recv_thread_ = Thread(&NetworkManager::receive_loop, this);
 }
 
 void NetworkManager::stop() {

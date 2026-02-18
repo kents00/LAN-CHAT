@@ -16,7 +16,7 @@ ClientHandler::ClientHandler(uint32_t id, std::string name,
     : id_(id), name_(std::move(name)), socket_(std::move(socket)),
       on_message_(std::move(on_msg)), on_disconnect_(std::move(on_disc)) {
   running_.store(true);
-  recv_thread_ = std::thread(&ClientHandler::receive_loop, this);
+  recv_thread_ = Thread(&ClientHandler::receive_loop, this);
 }
 
 ClientHandler::~ClientHandler() {

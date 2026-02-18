@@ -84,7 +84,7 @@ void Server::start_accept_loop() {
   if (running_.load())
     return;
   running_.store(true);
-  accept_thread_ = std::thread(&Server::accept_loop, this);
+  accept_thread_ = Thread(&Server::accept_loop, this);
 }
 
 void Server::stop() {
