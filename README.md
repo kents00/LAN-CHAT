@@ -146,6 +146,3 @@ CPP PING BOTH PC/
 ## License
 
 MIT – free to use and modify for educational purposes.
-
-# LAN-CHAT
-A lightweight, multi-PC group chat application written in C++17 for the same local network.
