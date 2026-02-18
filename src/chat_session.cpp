@@ -11,18 +11,18 @@
 // ────────────────────────────────────────────────────────────────
 
 void ChatSession::add(const Message &msg) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   history_.push_back(msg);
 }
 
 void ChatSession::print_history() const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   for (const auto &msg : history_) {
     std::cout << msg.format() << "\n";
   }
 }
 
 std::size_t ChatSession::size() const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   return history_.size();
 }

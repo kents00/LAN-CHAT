@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -78,7 +77,7 @@ public:
   void stop_all();
 
 private:
-  mutable std::mutex mutex_;
+  mutable Mutex mutex_;
   std::unordered_map<uint32_t, std::unique_ptr<ClientHandler>> clients_;
   uint32_t next_id_{1};
 };

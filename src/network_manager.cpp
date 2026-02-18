@@ -50,7 +50,7 @@ void NetworkManager::stop() {
 // ──────────────────────────────────────────────────────────────────────
 
 void NetworkManager::send(const std::string &message) {
-  std::lock_guard<std::mutex> lock(send_mutex_);
+  LockGuard<Mutex> lock(send_mutex_);
   if (socket_.is_valid()) {
     socket_.send_message(message);
   }

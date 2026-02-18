@@ -27,7 +27,7 @@ void Server::init_winsock() {
 
 std::string Server::peer_ip(const sockaddr_in &addr) {
   char ip[INET_ADDRSTRLEN] = {};
-  inet_ntop(AF_INET, &addr.sin_addr, ip, sizeof(ip));
+  compat_inet_ntop(AF_INET, &addr.sin_addr, ip, sizeof(ip));
   return std::string(ip);
 }
 

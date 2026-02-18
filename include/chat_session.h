@@ -9,7 +9,8 @@
 
 #include "message.h"
 
-#include <mutex>
+#include "compat.h"
+
 #include <vector>
 
 /**
@@ -36,6 +37,6 @@ public:
   std::size_t size() const;
 
 private:
-  mutable std::mutex mutex_;
+  mutable Mutex mutex_;
   std::vector<Message> history_;
 };

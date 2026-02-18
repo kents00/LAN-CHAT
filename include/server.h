@@ -17,10 +17,11 @@
 
 #include "socket_wrapper.h"
 
+#include "compat.h"
+
 #include <atomic>
 #include <functional>
 #include <string>
-#include <thread>
 
 /**
  * @class Server
@@ -87,7 +88,7 @@ private:
   SOCKET listen_sock_;
   unsigned short port_;
   std::atomic<bool> running_{false};
-  std::thread accept_thread_;
+  Thread accept_thread_;
   NewClientCallback on_new_client_;
 
   /// Background accept loop entry point.

@@ -15,18 +15,18 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <windows.h>
 
 // Older MinGW headers may not define this constant
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #endif
 
-
 #include "chat_session.h"
 #include "client.h"
+#include "compat.h"
 #include "message.h"
 #include "network_manager.h"
 #include "room.h"
@@ -37,7 +37,6 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <thread>
 
 // ── ANSI colour helpers
 // ───────────────────────────────────────────────────────
@@ -95,7 +94,7 @@ static void print_local_ips() {
   for (auto *p = res; p; p = p->ai_next) {
     char ip[INET_ADDRSTRLEN];
     auto *sa = reinterpret_cast<sockaddr_in *>(p->ai_addr);
-    inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
+    compat_inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
     std::cout << "           " << ip << "\n";
   }
   std::cout << ansi::RESET;

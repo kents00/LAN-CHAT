@@ -10,12 +10,12 @@
 
 #include "socket_wrapper.h"
 
+#include "compat.h"
+
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <mutex>
 #include <string>
-#include <thread>
 
 /**
  * @class ClientHandler
@@ -78,11 +78,11 @@ private:
   std::string name_;
   SocketWrapper socket_;
   std::atomic<bool> running_{false};
-  std::mutex send_mutex_;
+  Mutex send_mutex_;
 
   MessageCallback on_message_;
   DisconnectCallback on_disconnect_;
-  std::thread recv_thread_;
+  Thread recv_thread_;
 
   /// Background receive loop entry point.
   void receive_loop();

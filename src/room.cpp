@@ -16,7 +16,7 @@ Room::~Room() { stop_all(); }
 // ─────────────────────────────────────────────────────────
 
 uint32_t Room::add_client(SocketWrapper socket, const std::string &name) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
 
   uint32_t id = next_id_++;
 
@@ -40,7 +40,7 @@ uint32_t Room::add_client(SocketWrapper socket, const std::string &name) {
 }
 
 void Room::remove_client(uint32_t id) {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   auto it = clients_.find(id);
   if (it != clients_.end()) {
     std::cout << "\n[Room] " << it->second->name()
@@ -61,7 +61,7 @@ void Room::broadcast(uint32_t sender_id, const std::string &sender_name,
   // Format: "[SenderName]: message"
   std::string payload = "[" + sender_name + "]: " + message;
 
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   for (auto it = clients_.begin(); it != clients_.end(); ++it) {
     if (it->first != sender_id && it->second->is_active()) {
       it->second->send(payload);
@@ -73,7 +73,7 @@ void Room::broadcast_all(const std::string &sender_name,
                          const std::string &message) {
   std::string payload = "[" + sender_name + "]: " + message;
 
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   for (auto it = clients_.begin(); it != clients_.end(); ++it) {
     if (it->second->is_active()) {
       it->second->send(payload);
@@ -85,12 +85,12 @@ void Room::broadcast_all(const std::string &sender_name,
 // ─────────────────────────────────────────────────────────────────
 
 std::size_t Room::client_count() const {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   return clients_.size();
 }
 
 void Room::stop_all() {
-  std::lock_guard<std::mutex> lock(mutex_);
+  LockGuard<Mutex> lock(mutex_);
   for (auto it = clients_.begin(); it != clients_.end(); ++it) {
     it->second->stop();
   }

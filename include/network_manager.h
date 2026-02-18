@@ -17,11 +17,11 @@
 
 #include "socket_wrapper.h"
 
+#include "compat.h"
+
 #include <atomic>
 #include <functional>
-#include <mutex>
 #include <string>
-#include <thread>
 
 /**
  * @class NetworkManager
@@ -75,9 +75,9 @@ public:
 
 private:
   SocketWrapper socket_;
-  std::thread recv_thread_;
+  Thread recv_thread_;
   std::atomic<bool> running_{false};
-  std::mutex send_mutex_;
+  Mutex send_mutex_;
 
   MessageCallback on_message_;
   std::function<void()> on_disconnect_;

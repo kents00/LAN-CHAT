@@ -15,7 +15,7 @@ g++ -std=c++14 -Wall -Wextra -Iinclude ^
     src\room.cpp ^
     src\main.cpp ^
     -o build\LAN_Chat.exe ^
-    -lws2_32 -lpthread
+    -lws2_32
 if %ERRORLEVEL% == 0 (
     echo [Build] SUCCESS: build\LAN_Chat.exe created.
 ) else (
